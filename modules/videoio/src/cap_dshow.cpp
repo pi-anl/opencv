@@ -42,7 +42,6 @@
 #include "precomp.hpp"
 
 #if (defined WIN32 || defined _WIN32) && defined HAVE_DSHOW
-#include "cap_dshow.hpp"
 
 /*
    DirectShow-based Video Capturing module is based on
@@ -88,14 +87,11 @@ Thanks to:
 */
 /////////////////////////////////////////////////////////
 
+#include "precomp.hpp"
+
 #if defined _MSC_VER && _MSC_VER >= 100
 //'sprintf': name was marked as #pragma deprecated
 #pragma warning(disable: 4995)
-#endif
-
-#ifdef __MINGW32__
-// MinGW does not understand COM interfaces
-#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
 #endif
 
 #include <tchar.h>
@@ -139,6 +135,8 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE Clone(
         /* [out] */ IEnumPIDMap **ppIEnumPIDMap) = 0;
+
+    virtual ~IEnumPIDMap() {}
 };
 
 interface IMPEG2PIDMap : public IUnknown
@@ -154,6 +152,8 @@ interface IMPEG2PIDMap : public IUnknown
 
     virtual HRESULT STDMETHODCALLTYPE EnumPIDMap(
         /* [out] */ IEnumPIDMap **pIEnumPIDMap) = 0;
+
+    virtual ~IMPEG2PIDMap() {}
 };
 
 #endif
@@ -178,6 +178,14 @@ MEDIASUBTYPE_GREY : TGUID ='{59455247-0000-0010-8000-00AA00389B71}';
 */
 
 #include <initguid.h>
+
+//Included by e-con
+DEFINE_GUID(MEDIASUBTYPE_BY8, 0x20385942, 0x0000, 0x0010, 0x80, 0x00, 
+	0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
+
+DEFINE_GUID(MEDIASUBTYPE_Y16, 0x20363159, 0x0000, 0x0010, 0x80, 0x00, 
+	0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71);
+//Included by e-con - end
 
 DEFINE_GUID(MEDIASUBTYPE_GREY, 0x59455247, 0x0000, 0x0010, 0x80, 0x00,
     0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
@@ -213,7 +221,7 @@ DEFINE_GUID(MEDIASUBTYPE_RGB24,0xe436eb7d,0x524f,0x11ce,0x9f,0x53,0x00,0x20,0xaf
 DEFINE_GUID(MEDIASUBTYPE_RGB32,0xe436eb7e,0x524f,0x11ce,0x9f,0x53,0x00,0x20,0xaf,0x0b,0xa7,0x70);
 DEFINE_GUID(MEDIASUBTYPE_RGB555,0xe436eb7c,0x524f,0x11ce,0x9f,0x53,0x00,0x20,0xaf,0x0b,0xa7,0x70);
 DEFINE_GUID(MEDIASUBTYPE_RGB565,0xe436eb7b,0x524f,0x11ce,0x9f,0x53,0x00,0x20,0xaf,0x0b,0xa7,0x70);
-DEFINE_GUID(MEDIASUBTYPE_I420,0x30323449,0x0000,0x0010,0x80,0x00,0x00,0xaa,0x00,0x38,0x9b,0x71);
+DEFINE_GUID(MEDIASUBTYPE_I420,0x49343230,0x0000,0x0010,0x80,0x00,0x00,0xaa,0x00,0x38,0x9b,0x71);
 DEFINE_GUID(MEDIASUBTYPE_UYVY,0x59565955,0x0000,0x0010,0x80,0x00,0x00,0xaa,0x00,0x38,0x9b,0x71);
 DEFINE_GUID(MEDIASUBTYPE_Y211,0x31313259,0x0000,0x0010,0x80,0x00,0x00,0xaa,0x00,0x38,0x9b,0x71);
 DEFINE_GUID(MEDIASUBTYPE_Y411,0x31313459,0x0000,0x0010,0x80,0x00,0x00,0xaa,0x00,0x38,0x9b,0x71);
@@ -239,6 +247,8 @@ interface ISampleGrabberCB : public IUnknown
         double SampleTime,
         BYTE *pBuffer,
         LONG BufferLen) = 0;
+
+    virtual ~ISampleGrabberCB() {}
 };
 
 interface ISampleGrabber : public IUnknown
@@ -265,6 +275,8 @@ interface ISampleGrabber : public IUnknown
     virtual HRESULT STDMETHODCALLTYPE SetCallback(
         ISampleGrabberCB *pCallback,
         LONG WhichMethodToCallback) = 0;
+
+    virtual ~ISampleGrabber() {}
 };
 
 #ifndef HEADER
@@ -333,34 +345,8 @@ interface ISampleGrabber : public IUnknown
 
 //STUFF YOU CAN CHANGE
 
-#ifdef _DEBUG
-#include <strsafe.h>
-
 //change for verbose debug info
-static bool gs_verbose = true;
-
-static void DebugPrintOut(const char *format, ...)
-{
-    if (gs_verbose)
-    {
-        va_list args;
-        va_start(args, format);
-        if( ::IsDebuggerPresent() )
-        {
-            CHAR szMsg[512];
-            ::StringCbVPrintfA(szMsg, sizeof(szMsg), format, args);
-            ::OutputDebugStringA(szMsg);
-        }
-        else
-        {
-            vprintf(format, args);
-        }
-        va_end (args);
-    }
-}
-#else
-#define DebugPrintOut(...) void()
-#endif
+static bool verbose = true;
 
 //if you need VI to use multi threaded com
 //#define VI_COM_MULTI_THREADED
@@ -370,7 +356,9 @@ static void DebugPrintOut(const char *format, ...)
 //videoInput defines
 #define VI_VERSION      0.1995
 #define VI_MAX_CAMERAS  20
-#define VI_NUM_TYPES    20 //MGB
+//Modified by e-con
+#define VI_NUM_TYPES    22 //MGB
+//Modified by e-con - end
 #define VI_NUM_FORMATS  18 //DON'T TOUCH
 
 //defines for setPhyCon - tuner is not as well supported as composite and s-video
@@ -479,7 +467,13 @@ class videoDevice{
 
 };
 
+
+
+
 //////////////////////////////////////   VIDEO INPUT   /////////////////////////////////////
+
+
+
 class videoInput{
 
     public:
@@ -529,7 +523,7 @@ class videoInput{
         //Tells you when a new frame has arrived - you should call this if you have specified setAutoReconnectOnFreeze to true
         bool isFrameNew(int deviceID);
 
-        bool isDeviceSetup(int deviceID) const;
+        bool isDeviceSetup(int deviceID);
 
         //Returns the pixels - flipRedAndBlue toggles RGB/BGR flipping - and you can flip the image too
         unsigned char * getPixels(int deviceID, bool flipRedAndBlue = true, bool flipImage = false);
@@ -554,11 +548,14 @@ class videoInput{
         //bool setVideoSettingCam(int deviceID, long Property, long lValue, long Flags = NULL, bool useDefaultValue = false);
 
         //get width, height and number of pixels
-        int  getWidth(int deviceID) const;
-        int  getHeight(int deviceID) const;
-        int  getSize(int deviceID) const;
-        int  getFourcc(int deviceID) const;
-        double getFPS(int deviceID) const;
+        int  getWidth(int deviceID);
+        int  getHeight(int deviceID);
+        int  getSize(int deviceID);
+        int  getFourcc(int deviceID);
+        double getFPS(int deviceID);
+		//Included to allocate IplImage for Opencv - e-con
+		GUID getMediasubtype(int deviceID);
+		//Included to allocate IplImage for Opencv - e-con - end
 
         //completely stops and frees a device
         void stopDevice(int deviceID);
@@ -582,7 +579,7 @@ class videoInput{
         int  getDeviceCount();
         void getMediaSubtypeAsString(GUID type, char * typeAsString);
         GUID *getMediaSubtypeFromFourcc(int fourcc);
-        int   getFourccFromMediaSubtype(GUID type) const;
+        int    getFourccFromMediaSubtype(GUID type);
 
         void getVideoPropertyAsString(int prop, char * propertyAsString);
         void getCameraPropertyAsString(int prop, char * propertyAsString);
@@ -620,6 +617,30 @@ class videoInput{
 };
 
 ///////////////////////////  HANDY FUNCTIONS  /////////////////////////////
+
+//Included by e-con
+//Checks whether the current formattype is single byte format
+//Eg: MEDIASUBTYPE_Y800, MEDIASUBTYPE_Y8, MEDIASUBTYPE_GREY, MEDIASUBTYPE_BY8
+static bool checkSingleByteFormat(GUID FormatType)
+{
+	bool IsSingleByteFormat = true;
+
+	if(FormatType == MEDIASUBTYPE_Y800 ||
+		FormatType == MEDIASUBTYPE_Y8 ||
+		FormatType == MEDIASUBTYPE_GREY ||
+		FormatType == MEDIASUBTYPE_BY8)
+	{
+		IsSingleByteFormat = true;
+	}
+	else
+	{
+		IsSingleByteFormat = false;
+	}
+
+	return IsSingleByteFormat;
+}
+//Included by e-con - end
+
 
 static void MyFreeMediaType(AM_MEDIA_TYPE& mt){
     if (mt.cbFormat != 0)
@@ -720,7 +741,7 @@ public:
                 LeaveCriticalSection(&critSection);
                 SetEvent(hEvent);
             }else{
-                DebugPrintOut("ERROR: SampleCB() - buffer sizes do not match\n");
+                printf("ERROR: SampleCB() - buffer sizes do not match\n");
             }
         }
 
@@ -808,13 +829,20 @@ videoDevice::videoDevice(){
 
 void videoDevice::setSize(int w, int h){
     if(sizeSet){
-        DebugPrintOut("SETUP: Error device size should not be set more than once\n");
+        if(verbose)printf("SETUP: Error device size should not be set more than once \n");
     }
     else
     {
         width               = w;
         height              = h;
-        videoSize           = w*h*3;
+		//Included conditional buffer size by e-con
+		if(checkSingleByteFormat(pAmMediaType->subtype))
+			videoSize = w * h;
+		else if(pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+			videoSize = w * h * 2;
+		else
+			videoSize           = w*h*3;
+		//Included conditional buffer size by e-con - end
         sizeSet             = true;
         pixels              = new unsigned char[videoSize];
         pBuffer             = new char[videoSize];
@@ -886,7 +914,7 @@ void videoDevice::destroyGraph(){
         // We must get the enumerator again every time because removing a filter from the graph
         // invalidates the enumerator. We always get only the first filter from each enumerator.
         hr = pGraph->EnumFilters(&pEnum);
-        if (FAILED(hr)) { DebugPrintOut("SETUP: pGraph->EnumFilters() failed.\n"); return; }
+        if (FAILED(hr)) { if(verbose)printf("SETUP: pGraph->EnumFilters() failed. \n"); return; }
 
         IBaseFilter * pFilter = NULL;
         if (pEnum->Next(1, &pFilter, &cFetched) == S_OK)
@@ -906,10 +934,10 @@ void videoDevice::destroyGraph(){
                 count++;
             }
 
-            DebugPrintOut("SETUP: removing filter %s...\n", buffer);
+            if(verbose)printf("SETUP: removing filter %s...\n", buffer);
             hr = pGraph->RemoveFilter(pFilter);
-            if (FAILED(hr)) { DebugPrintOut("SETUP: pGraph->RemoveFilter() failed.\n"); return; }
-            DebugPrintOut("SETUP: filter removed %s\n",buffer);
+            if (FAILED(hr)) { if(verbose)printf("SETUP: pGraph->RemoveFilter() failed. \n"); return; }
+            if(verbose)printf("SETUP: filter removed %s  \n",buffer);
 
             pFilter->Release();
             pFilter = NULL;
@@ -932,7 +960,7 @@ void videoDevice::destroyGraph(){
 
 videoDevice::~videoDevice(){
 
-    if(setupStarted){ DebugPrintOut("\nSETUP: Disconnecting device %i\n", myID); }
+    if(setupStarted){ if(verbose)printf("\nSETUP: Disconnecting device %i\n", myID); }
     else{
         if(sgCallback){
             sgCallback->Release();
@@ -947,7 +975,7 @@ videoDevice::~videoDevice(){
     if( (sgCallback) && (pGrabber) )
     {
         pGrabber->SetCallback(NULL, 1);
-        DebugPrintOut("SETUP: freeing Grabber Callback\n");
+        if(verbose)printf("SETUP: freeing Grabber Callback\n");
         sgCallback->Release();
 
         //delete our pixels
@@ -963,51 +991,51 @@ videoDevice::~videoDevice(){
      if( (pControl) )
     {
         HR = pControl->Pause();
-        if (FAILED(HR)) DebugPrintOut("ERROR - Could not pause pControl\n");
+        if (FAILED(HR)) if(verbose)printf("ERROR - Could not pause pControl\n");
 
         HR = pControl->Stop();
-        if (FAILED(HR)) DebugPrintOut("ERROR - Could not stop pControl\n");
+        if (FAILED(HR)) if(verbose)printf("ERROR - Could not stop pControl\n");
     }
 
     //Disconnect filters from capture device
     if( (pVideoInputFilter) )NukeDownstream(pVideoInputFilter);
 
     //Release and zero pointers to our filters etc
-    if( (pDestFilter) ){        DebugPrintOut("SETUP: freeing Renderer\n");
+    if( (pDestFilter) ){        if(verbose)printf("SETUP: freeing Renderer \n");
                                 (pDestFilter)->Release();
                                 (pDestFilter) = 0;
     }
-    if( (pVideoInputFilter) ){  DebugPrintOut("SETUP: freeing Capture Source\n");
+    if( (pVideoInputFilter) ){  if(verbose)printf("SETUP: freeing Capture Source \n");
                                 (pVideoInputFilter)->Release();
                                 (pVideoInputFilter) = 0;
     }
-    if( (pGrabberF) ){          DebugPrintOut("SETUP: freeing Grabber Filter\n");
+    if( (pGrabberF) ){          if(verbose)printf("SETUP: freeing Grabber Filter  \n");
                                 (pGrabberF)->Release();
                                 (pGrabberF) = 0;
     }
-    if( (pGrabber) ){           DebugPrintOut("SETUP: freeing Grabber\n");
+    if( (pGrabber) ){           if(verbose)printf("SETUP: freeing Grabber  \n");
                                 (pGrabber)->Release();
                                 (pGrabber) = 0;
     }
-    if( (pControl) ){           DebugPrintOut("SETUP: freeing Control\n");
+    if( (pControl) ){           if(verbose)printf("SETUP: freeing Control   \n");
                                 (pControl)->Release();
                                 (pControl) = 0;
     }
-    if( (pMediaEvent) ){        DebugPrintOut("SETUP: freeing Media Event\n");
+    if( (pMediaEvent) ){        if(verbose)printf("SETUP: freeing Media Event  \n");
                                 (pMediaEvent)->Release();
                                 (pMediaEvent) = 0;
     }
-    if( (streamConf) ){         DebugPrintOut("SETUP: freeing Stream\n");
+    if( (streamConf) ){         if(verbose)printf("SETUP: freeing Stream  \n");
                                 (streamConf)->Release();
                                 (streamConf) = 0;
     }
 
-    if( (pAmMediaType) ){       DebugPrintOut("SETUP: freeing Media Type\n");
+    if( (pAmMediaType) ){       if(verbose)printf("SETUP: freeing Media Type  \n");
                                 MyDeleteMediaType(pAmMediaType);
     }
 
     if((pMediaEvent)){
-            DebugPrintOut("SETUP: freeing Media Event\n");
+            if(verbose)printf("SETUP: freeing Media Event  \n");
             (pMediaEvent)->Release();
             (pMediaEvent) = 0;
     }
@@ -1016,11 +1044,11 @@ videoDevice::~videoDevice(){
     if( (pGraph) )destroyGraph();
 
     //Release and zero our capture graph and our main graph
-    if( (pCaptureGraph) ){      DebugPrintOut("SETUP: freeing Capture Graph\n");
+    if( (pCaptureGraph) ){      if(verbose)printf("SETUP: freeing Capture Graph \n");
                                 (pCaptureGraph)->Release();
                                 (pCaptureGraph) = 0;
     }
-    if( (pGraph) ){             DebugPrintOut("SETUP: freeing Main Graph\n");
+    if( (pGraph) ){             if(verbose)printf("SETUP: freeing Main Graph \n");
                                 (pGraph)->Release();
                                 (pGraph) = 0;
     }
@@ -1036,7 +1064,7 @@ videoDevice::~videoDevice(){
     delete pCaptureGraph;
     delete pGraph;
 
-    DebugPrintOut("SETUP: Device %i disconnected and freed\n\n",myID);
+    if(verbose)printf("SETUP: Device %i disconnected and freed\n\n",myID);
 }
 
 
@@ -1060,7 +1088,7 @@ videoInput::videoInput(){
     //setup a max no of device objects
     for(int i=0; i<VI_MAX_CAMERAS; i++)  VDList[i] = new videoDevice();
 
-    DebugPrintOut("\n***** VIDEOINPUT LIBRARY - %2.04f - TFW07 *****\n\n",VI_VERSION);
+    if(verbose)printf("\n***** VIDEOINPUT LIBRARY - %2.04f - TFW07 *****\n\n",VI_VERSION);
 
     //added for the pixelink firewire camera
      //MEDIASUBTYPE_Y800 = (GUID)FOURCCMap(FCC('Y800'));
@@ -1092,6 +1120,10 @@ videoInput::videoInput(){
     mediaSubtypes[17]    = MEDIASUBTYPE_Y8;
     mediaSubtypes[18]    = MEDIASUBTYPE_GREY;
     mediaSubtypes[19]    = MEDIASUBTYPE_I420;
+	//Included by e-con
+	mediaSubtypes[20]    = MEDIASUBTYPE_BY8;
+	mediaSubtypes[21]	 = MEDIASUBTYPE_Y16;
+	//Included by e-con - end
 
     //The video formats we support
     formatTypes[VI_NTSC_M]      = AnalogVideo_NTSC_M;
@@ -1124,11 +1156,7 @@ videoInput::videoInput(){
 // ----------------------------------------------------------------------
 
 void videoInput::setVerbose(bool _verbose){
-#ifdef _DEBUG
-    gs_verbose = _verbose;
-#else
-    (void)_verbose; // Suppress 'unreferenced parameter' warning
-#endif
+    verbose = _verbose;
 }
 
 // ----------------------------------------------------------------------
@@ -1141,7 +1169,7 @@ void videoInput::setUseCallback(bool useCallback){
         bCallback = useCallback;
         callbackSetCount = 1;
     }else{
-        DebugPrintOut("ERROR: setUseCallback can only be called before setup\n");
+        printf("ERROR: setUseCallback can only be called before setup\n");
     }
 }
 
@@ -1283,7 +1311,7 @@ bool videoInput::setFormat(int deviceNumber, int format){
             if(VDList[deviceNumber]->pVideoInputFilter)VDList[deviceNumber]->pVideoInputFilter = NULL;
 
             if(FAILED(hr)){
-                DebugPrintOut("SETUP: couldn't set requested format\n");
+                printf("SETUP: couldn't set requested format\n");
             }else{
                 long lValue = 0;
                 hr = pVideoDec->get_AvailableTVFormats(&lValue);
@@ -1291,7 +1319,7 @@ bool videoInput::setFormat(int deviceNumber, int format){
                    {
                        hr = pVideoDec->put_TVFormat(VDList[deviceNumber]->formatType);
                     if( FAILED(hr) ){
-                        DebugPrintOut("SETUP: couldn't set requested format\n");
+                        printf("SETUP: couldn't set requested format\n");
                     }else{
                         returnVal = true;
                     }
@@ -1331,7 +1359,7 @@ int videoInput::listDevices(bool silent){
     //COM Library Intialization
     comInit();
 
-    if(!silent) DebugPrintOut("\nVIDEOINPUT SPY MODE!\n\n");
+    if(!silent)printf("\nVIDEOINPUT SPY MODE!\n\n");
 
 
     ICreateDevEnum *pDevEnum = NULL;
@@ -1352,7 +1380,7 @@ int videoInput::listDevices(bool silent){
 
        if(hr == S_OK){
 
-            if(!silent) DebugPrintOut("SETUP: Looking For Capture Devices\n");
+             if(!silent)printf("SETUP: Looking For Capture Devices\n");
             IMoniker *pMoniker = NULL;
 
             while (pEnum->Next(1, &pMoniker, NULL) == S_OK){
@@ -1386,7 +1414,7 @@ int videoInput::listDevices(bool silent){
                     }
                     deviceNames[deviceCounter][count] = 0;
 
-                    if(!silent) DebugPrintOut("SETUP: %i) %s\n",deviceCounter, deviceNames[deviceCounter]);
+                    if(!silent)printf("SETUP: %i) %s \n",deviceCounter, deviceNames[deviceCounter]);
                 }
 
                 pPropBag->Release();
@@ -1405,7 +1433,7 @@ int videoInput::listDevices(bool silent){
             pEnum = NULL;
         }
 
-         if(!silent) DebugPrintOut("SETUP: %i Device(s) found\n\n", deviceCounter);
+         if(!silent)printf("SETUP: %i Device(s) found\n\n", deviceCounter);
     }
 
     comUnInit();
@@ -1419,8 +1447,8 @@ int videoInput::listDevices(bool silent){
 //
 // ----------------------------------------------------------------------
 
-int videoInput::getWidth(int id) const
-{
+int videoInput::getWidth(int id){
+
     if(isDeviceSetup(id))
     {
         return VDList[id] ->width;
@@ -1436,8 +1464,8 @@ int videoInput::getWidth(int id) const
 //
 // ----------------------------------------------------------------------
 
-int videoInput::getHeight(int id) const
-{
+int videoInput::getHeight(int id){
+
     if(isDeviceSetup(id))
     {
         return VDList[id] ->height;
@@ -1451,8 +1479,8 @@ int videoInput::getHeight(int id) const
 //
 //
 // ----------------------------------------------------------------------
-int videoInput::getFourcc(int id) const
-{
+int videoInput::getFourcc(int id){
+
     if(isDeviceSetup(id))
     {
         return getFourccFromMediaSubtype(VDList[id]->videoType);
@@ -1462,8 +1490,8 @@ int videoInput::getFourcc(int id) const
 
 }
 
-double videoInput::getFPS(int id) const
-{
+double videoInput::getFPS(int id){
+
     if(isDeviceSetup(id))
     {
         double frameTime= VDList[id]->requestedFrameTime;
@@ -1476,14 +1504,20 @@ double videoInput::getFPS(int id) const
 
 }
 
-
-// ----------------------------------------------------------------------
-//
-//
-// ----------------------------------------------------------------------
-
-int videoInput::getSize(int id) const
+//Included by e-con
+GUID videoInput::getMediasubtype(int deviceID)
 {
+	return VDList[deviceID]->pAmMediaType->subtype;
+}
+//Included by e-con - end
+
+// ----------------------------------------------------------------------
+//
+//
+// ----------------------------------------------------------------------
+
+int videoInput::getSize(int id){
+
     if(isDeviceSetup(id))
     {
         return VDList[id] ->videoSize;
@@ -1492,7 +1526,6 @@ int videoInput::getSize(int id) const
     return 0;
 
 }
-
 
 // ----------------------------------------------------------------------
 // Uses a supplied buffer
@@ -1517,7 +1550,14 @@ bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlu
                 int height             = VDList[id]->height;
                 int width              = VDList[id]->width;
 
-                processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+				//Added condition based operation by e-con - end
+				if(checkSingleByteFormat(VDList[id]->pAmMediaType->subtype))
+					memcpy(dst, src, width * height);
+				else if(VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+					memcpy(dst, src, width * height * 2);
+				else
+					processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+				//Added condition based operation by e-con - end
                 VDList[id]->sgCallback->newFrame = false;
 
             LeaveCriticalSection(&VDList[id]->sgCallback->critSection);
@@ -1539,14 +1579,21 @@ bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlu
                     unsigned char * dst = dstBuffer;
                     int height             = VDList[id]->height;
                     int width             = VDList[id]->width;
-
-                    processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+					
+					//Added condition based operation by e-con
+					if(checkSingleByteFormat(VDList[id]->pAmMediaType->subtype))
+						memcpy(dst, src, width * height);
+					else if(VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+						memcpy(dst, src, width * height * 2);
+					else
+						processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+					//Added condition based operation by e-con - end
                     success = true;
                 }else{
-                    DebugPrintOut("ERROR: GetPixels() - bufferSizes do not match!\n");
+                    if(verbose)printf("ERROR: GetPixels() - bufferSizes do not match!\n");
                 }
             }else{
-                DebugPrintOut("ERROR: GetPixels() - Unable to grab frame for device %i\n", id);
+                if(verbose)printf("ERROR: GetPixels() - Unable to grab frame for device %i\n", id);
             }
         }
     }
@@ -1598,11 +1645,11 @@ bool videoInput::isFrameNew(int id){
     VDList[id]->nFramesRunning++;
 
     if(freeze && VDList[id]->autoReconnect){
-        DebugPrintOut("ERROR: Device seems frozen - attempting to reconnect\n");
+        if(verbose)printf("ERROR: Device seems frozen - attempting to reconnect\n");
         if( !restartDevice(VDList[id]->myID) ){
-            DebugPrintOut("ERROR: Unable to reconnect to device\n");
+            if(verbose)printf("ERROR: Unable to reconnect to device\n");
         }else{
-            DebugPrintOut("SUCCESS: Able to reconnect to device\n");
+            if(verbose)printf("SUCCESS: Able to reconnect to device\n");
         }
     }
 
@@ -1615,10 +1662,11 @@ bool videoInput::isFrameNew(int id){
 //
 // ----------------------------------------------------------------------
 
-bool videoInput::isDeviceSetup(int id) const
-{
-    if(id>=0 && id<devicesFound && VDList[id]->readyToCapture)return true;
+bool videoInput::isDeviceSetup(int id){
+
+    if(id<devicesFound && VDList[id]->readyToCapture)return true;
     else return false;
+
 }
 
 
@@ -1672,7 +1720,7 @@ bool videoInput::getVideoSettingFilter(int deviceID, long Property, long &min, l
 
     hr = getDevice(&VD->pVideoInputFilter, deviceID, VD->wDeviceName, VD->nDeviceName);
     if (FAILED(hr)){
-        DebugPrintOut("setVideoSetting - getDevice Error\n");
+        printf("setVideoSetting - getDevice Error\n");
         return false;
     }
 
@@ -1680,7 +1728,7 @@ bool videoInput::getVideoSettingFilter(int deviceID, long Property, long &min, l
 
     hr = VD->pVideoInputFilter->QueryInterface(IID_IAMVideoProcAmp, (void**)&pAMVideoProcAmp);
     if(FAILED(hr)){
-        DebugPrintOut("setVideoSetting - QueryInterface Error\n");
+        printf("setVideoSetting - QueryInterface Error\n");
         if(VD->pVideoInputFilter)VD->pVideoInputFilter->Release();
         if(VD->pVideoInputFilter)VD->pVideoInputFilter = NULL;
         return false;
@@ -1689,10 +1737,10 @@ bool videoInput::getVideoSettingFilter(int deviceID, long Property, long &min, l
     char propStr[16];
     getVideoPropertyAsString(Property,propStr);
 
-    DebugPrintOut("Setting video setting %s.\n", propStr);
+    if (verbose) printf("Setting video setting %s.\n", propStr);
 
     pAMVideoProcAmp->GetRange(Property, &min, &max, &SteppingDelta, &defaultValue, &flags);
-    DebugPrintOut("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, min, max, SteppingDelta, defaultValue, flags);
+    if (verbose) printf("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, min, max, SteppingDelta, defaultValue, flags);
     pAMVideoProcAmp->Get(Property, &currentValue, &flags);
 
     if(pAMVideoProcAmp)pAMVideoProcAmp->Release();
@@ -1733,7 +1781,7 @@ bool videoInput::setVideoSettingFilterPct(int deviceID, long Property, float pct
         float halfStep     = (float)stepAmnt * 0.5f;
         if( mod < halfStep ) rasterValue -= mod;
         else rasterValue += stepAmnt - mod;
-        DebugPrintOut("RASTER - pctValue is %f - value is %li - step is %li - mod is %li - rasterValue is %li\n", pctValue, value, stepAmnt, mod, rasterValue);
+        printf("RASTER - pctValue is %f - value is %li - step is %li - mod is %li - rasterValue is %li\n", pctValue, value, stepAmnt, mod, rasterValue);
     }
 
     return setVideoSettingFilter(deviceID, Property, rasterValue, Flags, false);
@@ -1754,7 +1802,7 @@ bool videoInput::setVideoSettingFilter(int deviceID, long Property, long lValue,
 
     hr = getDevice(&VD->pVideoInputFilter, deviceID, VD->wDeviceName, VD->nDeviceName);
     if (FAILED(hr)){
-        DebugPrintOut("setVideoSetting - getDevice Error\n");
+        printf("setVideoSetting - getDevice Error\n");
         return false;
     }
 
@@ -1762,21 +1810,21 @@ bool videoInput::setVideoSettingFilter(int deviceID, long Property, long lValue,
 
     hr = VD->pVideoInputFilter->QueryInterface(IID_IAMVideoProcAmp, (void**)&pAMVideoProcAmp);
     if(FAILED(hr)){
-        DebugPrintOut("setVideoSetting - QueryInterface Error\n");
+        printf("setVideoSetting - QueryInterface Error\n");
         if(VD->pVideoInputFilter)VD->pVideoInputFilter->Release();
         if(VD->pVideoInputFilter)VD->pVideoInputFilter = NULL;
         return false;
     }
 
-    DebugPrintOut("Setting video setting %s.\n", propStr);
+    if (verbose) printf("Setting video setting %s.\n", propStr);
     long CurrVal, Min, Max, SteppingDelta, Default, CapsFlags, AvailableCapsFlags = 0;
 
 
     pAMVideoProcAmp->GetRange(Property, &Min, &Max, &SteppingDelta, &Default, &AvailableCapsFlags);
-    DebugPrintOut("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, Min, Max, SteppingDelta, Default, AvailableCapsFlags);
+    if (verbose) printf("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, Min, Max, SteppingDelta, Default, AvailableCapsFlags);
     pAMVideoProcAmp->Get(Property, &CurrVal, &CapsFlags);
 
-    DebugPrintOut("Current value: %ld Flags %ld (%s)\n", CurrVal, CapsFlags, (CapsFlags == 1 ? "Auto" : (CapsFlags == 2 ? "Manual" : "Unknown")));
+    if (verbose) printf("Current value: %ld Flags %ld (%s)\n", CurrVal, CapsFlags, (CapsFlags == 1 ? "Auto" : (CapsFlags == 2 ? "Manual" : "Unknown")));
 
     if (useDefaultValue) {
         pAMVideoProcAmp->Set(Property, Default, VideoProcAmp_Flags_Auto);
@@ -1823,7 +1871,7 @@ bool videoInput::setVideoSettingCameraPct(int deviceID, long Property, float pct
         float halfStep     = (float)stepAmnt * 0.5f;
         if( mod < halfStep ) rasterValue -= mod;
         else rasterValue += stepAmnt - mod;
-        DebugPrintOut("RASTER - pctValue is %f - value is %li - step is %li - mod is %li - rasterValue is %li\n", pctValue, value, stepAmnt, mod, rasterValue);
+        printf("RASTER - pctValue is %f - value is %li - step is %li - mod is %li - rasterValue is %li\n", pctValue, value, stepAmnt, mod, rasterValue);
     }
 
     return setVideoSettingCamera(deviceID, Property, rasterValue, Flags, false);
@@ -1840,21 +1888,19 @@ bool videoInput::setVideoSettingCamera(int deviceID, long Property, long lValue,
         char propStr[16];
         getCameraPropertyAsString(Property,propStr);
 
-        DebugPrintOut("Setting video setting %s.\n", propStr);
+        if (verbose) printf("Setting video setting %s.\n", propStr);
         hr = VDList[deviceID]->pVideoInputFilter->QueryInterface(IID_IAMCameraControl, (void**)&pIAMCameraControl);
         if (FAILED(hr)) {
-            DebugPrintOut("Error\n");
-            if(VDList[deviceID]->pVideoInputFilter)VDList[deviceID]->pVideoInputFilter->Release();
-            if(VDList[deviceID]->pVideoInputFilter)VDList[deviceID]->pVideoInputFilter = NULL;
+            printf("Error\n");
             return false;
         }
         else
         {
             long CurrVal, Min, Max, SteppingDelta, Default, CapsFlags, AvailableCapsFlags;
             pIAMCameraControl->GetRange(Property, &Min, &Max, &SteppingDelta, &Default, &AvailableCapsFlags);
-            DebugPrintOut("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, Min, Max, SteppingDelta, Default, AvailableCapsFlags);
+            if (verbose) printf("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, Min, Max, SteppingDelta, Default, AvailableCapsFlags);
             pIAMCameraControl->Get(Property, &CurrVal, &CapsFlags);
-            DebugPrintOut("Current value: %ld Flags %ld (%s)\n", CurrVal, CapsFlags, (CapsFlags == 1 ? "Auto" : (CapsFlags == 2 ? "Manual" : "Unknown")));
+            if (verbose) printf("Current value: %ld Flags %ld (%s)\n", CurrVal, CapsFlags, (CapsFlags == 1 ? "Auto" : (CapsFlags == 2 ? "Manual" : "Unknown")));
             if (useDefaultValue) {
                 pIAMCameraControl->Set(Property, Default, CameraControl_Flags_Auto);
             }
@@ -1864,8 +1910,6 @@ bool videoInput::setVideoSettingCamera(int deviceID, long Property, long lValue,
                 pIAMCameraControl->Set(Property, lValue, Flags);
             }
             pIAMCameraControl->Release();
-            if(VDList[deviceID]->pVideoInputFilter)VDList[deviceID]->pVideoInputFilter->Release();
-            if(VDList[deviceID]->pVideoInputFilter)VDList[deviceID]->pVideoInputFilter = NULL;
             return true;
         }
     }
@@ -1884,7 +1928,7 @@ bool videoInput::getVideoSettingCamera(int deviceID, long Property, long &min, l
 
     hr = getDevice(&VD->pVideoInputFilter, deviceID, VD->wDeviceName, VD->nDeviceName);
     if (FAILED(hr)){
-        DebugPrintOut("setVideoSetting - getDevice Error\n");
+        printf("setVideoSetting - getDevice Error\n");
         return false;
     }
 
@@ -1892,7 +1936,7 @@ bool videoInput::getVideoSettingCamera(int deviceID, long Property, long &min, l
 
     hr = VD->pVideoInputFilter->QueryInterface(IID_IAMCameraControl, (void**)&pIAMCameraControl);
     if(FAILED(hr)){
-        DebugPrintOut("setVideoSetting - QueryInterface Error\n");
+        printf("setVideoSetting - QueryInterface Error\n");
         if(VD->pVideoInputFilter)VD->pVideoInputFilter->Release();
         if(VD->pVideoInputFilter)VD->pVideoInputFilter = NULL;
         return false;
@@ -1900,10 +1944,10 @@ bool videoInput::getVideoSettingCamera(int deviceID, long Property, long &min, l
 
     char propStr[16];
     getCameraPropertyAsString(Property,propStr);
-    DebugPrintOut("Setting video setting %s.\n", propStr);
+    if (verbose) printf("Setting video setting %s.\n", propStr);
 
     pIAMCameraControl->GetRange(Property, &min, &max, &SteppingDelta, &defaultValue, &flags);
-    DebugPrintOut("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, min, max, SteppingDelta, defaultValue, flags);
+    if (verbose) printf("Range for video setting %s: Min:%ld Max:%ld SteppingDelta:%ld Default:%ld Flags:%ld\n", propStr, min, max, SteppingDelta, defaultValue, flags);
     pIAMCameraControl->Get(Property, &currentValue, &flags);
 
     if(pIAMCameraControl)pIAMCameraControl->Release();
@@ -2011,7 +2055,7 @@ bool videoInput::comInit(){
         //if another library has started com as single threaded
         //and we need it multi-threaded - send warning but don't fail
         if( hr == RPC_E_CHANGED_MODE){
-             DebugPrintOut("SETUP - COM already setup - threaded VI might not be possible\n");
+             if(verbose)printf("SETUP - COM already setup - threaded VI might not be possible\n");
         }
     }
 
@@ -2096,14 +2140,14 @@ bool videoInput::setup(int deviceNumber){
 
      if(deviceNumber>devicesFound-1)
     {
-        DebugPrintOut("SETUP: device[%i] not found - you have %i devices available\n", deviceNumber, devicesFound);
-        if(devicesFound>=0) DebugPrintOut("SETUP: this means that the last device you can use is device[%i]\n",  devicesFound-1);
+        if(verbose)printf("SETUP: device[%i] not found - you have %i devices available\n", deviceNumber, devicesFound);
+        if(devicesFound>=0) if(verbose)printf("SETUP: this means that the last device you can use is device[%i] \n",  devicesFound-1);
         return false;
     }
 
     if(VDList[deviceNumber]->readyToCapture)
     {
-        DebugPrintOut("SETUP: can't setup, device %i is currently being used\n",VDList[deviceNumber]->myID);
+        if(verbose)printf("SETUP: can't setup, device %i is currently being used\n",VDList[deviceNumber]->myID);
         return false;
     }
 
@@ -2204,13 +2248,15 @@ void videoInput::getMediaSubtypeAsString(GUID type, char * typeAsString){
     else if(type == MEDIASUBTYPE_Y8)    sprintf(tmpStr, "Y8");
     else if(type == MEDIASUBTYPE_GREY)  sprintf(tmpStr, "GREY");
     else if(type == MEDIASUBTYPE_I420)  sprintf(tmpStr, "I420");
+	//Included by e-con
+	else if(type == MEDIASUBTYPE_BY8)  sprintf(tmpStr, "BY8");
+	//Included by e-con - end
     else sprintf(tmpStr, "OTHER");
 
     memcpy(typeAsString, tmpStr, sizeof(char)*8);
 }
 
-int videoInput::getFourccFromMediaSubtype(GUID type) const
-{
+int videoInput::getFourccFromMediaSubtype(GUID type) {
     return type.Data1;
 }
 
@@ -2266,7 +2312,7 @@ int videoInput::getVideoPropertyFromCV(int cv_property){
         case CV_CAP_PROP_GAMMA:
             return VideoProcAmp_Gamma;
 
-        case CV_CAP_PROP_MONOCHROME:
+        case CV_CAP_PROP_MONOCROME:
             return VideoProcAmp_ColorEnable;
 
         case CV_CAP_PROP_WHITE_BALANCE_BLUE_U:
@@ -2360,8 +2406,8 @@ static void findClosestSizeAndSubtype(videoDevice * VD, int widthIn, int heightI
                    //Don't want to get stuck in a loop
                    if(stepX < 1 || stepY < 1) continue;
 
-                   //DebugPrintOut("min is %i %i max is %i %i - res is %i %i\n", scc.MinOutputSize.cx, scc.MinOutputSize.cy,  scc.MaxOutputSize.cx,  scc.MaxOutputSize.cy, stepX, stepY);
-                   //DebugPrintOut("min frame duration is %i  max duration is %i\n", scc.MinFrameInterval, scc.MaxFrameInterval);
+                   //if(verbose)printf("min is %i %i max is %i %i - res is %i %i \n", scc.MinOutputSize.cx, scc.MinOutputSize.cy,  scc.MaxOutputSize.cx,  scc.MaxOutputSize.cy, stepX, stepY);
+                   //if(verbose)printf("min frame duration is %i  max duration is %i\n", scc.MinFrameInterval, scc.MaxFrameInterval);
 
                    bool exactMatch     = false;
                    bool exactMatchX    = false;
@@ -2447,15 +2493,14 @@ static bool setSizeAndSubtype(videoDevice * VD, int attemptWidth, int attemptHei
     VD->pAmMediaType->subtype     = mediatype;
 
     //buffer size
-    if (mediatype == MEDIASUBTYPE_RGB24)
-    {
-        VD->pAmMediaType->lSampleSize = attemptWidth*attemptHeight*3;
-    }
-    else
-    {
-        // For compressed data, the value can be zero.
-        VD->pAmMediaType->lSampleSize = 0;
-    }
+	//Included conditional buffer size by econ
+	if(checkSingleByteFormat(mediatype))
+		VD->pAmMediaType->lSampleSize = attemptWidth * attemptHeight;
+	else if(mediatype == MEDIASUBTYPE_Y16)
+		VD->pAmMediaType->lSampleSize = attemptWidth * attemptHeight * 2;
+	else
+	    VD->pAmMediaType->lSampleSize = attemptWidth*attemptHeight*3;
+	//Included conditional buffer size by econ - end
 
     //set fps if requested
     if( VD->requestedFrameTime != -1){
@@ -2488,14 +2533,14 @@ int videoInput::start(int deviceID, videoDevice *VD){
     CAPTURE_MODE           = PIN_CATEGORY_CAPTURE; //Don't worry - it ends up being preview (which is faster)
     callbackSetCount     = 1;  //make sure callback method is not changed after setup called
 
-    DebugPrintOut("SETUP: Setting up device %i\n",deviceID);
+    if(verbose)printf("SETUP: Setting up device %i\n",deviceID);
 
     // CREATE THE GRAPH BUILDER //
     // Create the filter graph manager and query for interfaces.
     hr = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_ICaptureGraphBuilder2, (void **)&VD->pCaptureGraph);
     if (FAILED(hr))    // FAILED is a macro that tests the return value
     {
-        DebugPrintOut("ERROR - Could not create the Filter Graph Manager\n");
+        if(verbose)printf("ERROR - Could not create the Filter Graph Manager\n");
         return hr;
     }
 
@@ -2504,7 +2549,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     hr = CoCreateInstance(CLSID_FilterGraph, 0, CLSCTX_INPROC_SERVER,IID_IGraphBuilder, (void**)&VD->pGraph);
     if (FAILED(hr))
     {
-        DebugPrintOut("ERROR - Could not add the graph builder!\n");
+        if(verbose)printf("ERROR - Could not add the graph builder!\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2513,7 +2558,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     hr = VD->pCaptureGraph->SetFiltergraph(VD->pGraph);
     if (FAILED(hr))
     {
-        DebugPrintOut("ERROR - Could not set filtergraph\n");
+        if(verbose)printf("ERROR - Could not set filtergraph\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2524,8 +2569,8 @@ int videoInput::start(int deviceID, videoDevice *VD){
     hr = VD->pGraph->QueryInterface(IID_IMediaControl, (void **)&VD->pControl);
     if (FAILED(hr))
     {
-        DebugPrintOut("ERROR - Could not create the Media Control object\n");
-        stopDevice(deviceID);
+        if(verbose)printf("ERROR - Could not create the Media Control object\n");
+           stopDevice(deviceID);
         return hr;
     }
 
@@ -2535,10 +2580,10 @@ int videoInput::start(int deviceID, videoDevice *VD){
     hr = getDevice(&VD->pVideoInputFilter, deviceID, VD->wDeviceName, VD->nDeviceName);
 
     if (SUCCEEDED(hr)){
-        DebugPrintOut("SETUP: %s\n", VD->nDeviceName);
+        if(verbose)printf("SETUP: %s\n", VD->nDeviceName);
         hr = VD->pGraph->AddFilter(VD->pVideoInputFilter, VD->wDeviceName);
     }else{
-        DebugPrintOut("ERROR - Could not find specified video device\n");
+        if(verbose)printf("ERROR - Could not find specified video device\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2547,7 +2592,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     IAMStreamConfig *streamConfTest = NULL;
     hr = VD->pCaptureGraph->FindInterface(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, VD->pVideoInputFilter, IID_IAMStreamConfig, (void **)&streamConfTest);
     if(FAILED(hr)){
-        DebugPrintOut("SETUP: Couldn't find preview pin using SmartTee\n");
+        if(verbose)printf("SETUP: Couldn't find preview pin using SmartTee\n");
     }else{
          CAPTURE_MODE = PIN_CATEGORY_PREVIEW;
          streamConfTest->Release();
@@ -2559,7 +2604,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     //webcams tend not to have a crossbar so this function will also detect a webcams and not apply the crossbar
     if(VD->useCrossbar)
     {
-        DebugPrintOut("SETUP: Checking crossbar\n");
+        if(verbose)printf("SETUP: Checking crossbar\n");
         routeCrossbar(&VD->pCaptureGraph, &VD->pVideoInputFilter, VD->connection, CAPTURE_MODE);
     }
 
@@ -2567,7 +2612,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     //we do this because webcams don't have a preview mode
     hr = VD->pCaptureGraph->FindInterface(&CAPTURE_MODE, &MEDIATYPE_Video, VD->pVideoInputFilter, IID_IAMStreamConfig, (void **)&VD->streamConf);
     if(FAILED(hr)){
-        DebugPrintOut("ERROR: Couldn't config the stream!\n");
+        if(verbose)printf("ERROR: Couldn't config the stream!\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2575,7 +2620,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     //NOW LETS DEAL WITH GETTING THE RIGHT SIZE
     hr = VD->streamConf->GetFormat(&VD->pAmMediaType);
     if(FAILED(hr)){
-        DebugPrintOut("ERROR: Couldn't getFormat for pAmMediaType!\n");
+        if(verbose)printf("ERROR: Couldn't getFormat for pAmMediaType!\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2589,16 +2634,15 @@ int videoInput::start(int deviceID, videoDevice *VD){
     bool foundSize  = false;
 
     if(customSize){
-        DebugPrintOut("SETUP: Default Format is set to %ix%i\n", currentWidth, currentHeight);
+        if(verbose)    printf("SETUP: Default Format is set to %i by %i \n", currentWidth, currentHeight);
 
         char guidStr[8];
             // try specified format and size
             getMediaSubtypeAsString(VD->tryVideoType, guidStr);
-            DebugPrintOut("SETUP: trying specified format %s @ %ix%i\n", guidStr, VD->tryWidth, VD->tryHeight);
+            if(verbose)printf("SETUP: trying specified format %s @ %i by %i\n", guidStr, VD->tryWidth, VD->tryHeight);
 
             if( setSizeAndSubtype(VD, VD->tryWidth, VD->tryHeight, VD->tryVideoType) ){
                 VD->setSize(VD->tryWidth, VD->tryHeight);
-                VD->videoType = VD->tryVideoType;
                 foundSize = true;
             } else {
                 // try specified size with all formats
@@ -2606,10 +2650,9 @@ int videoInput::start(int deviceID, videoDevice *VD){
 
                     getMediaSubtypeAsString(mediaSubtypes[i], guidStr);
 
-                    DebugPrintOut("SETUP: trying format %s @ %ix%i\n", guidStr, VD->tryWidth, VD->tryHeight);
+                    if(verbose)printf("SETUP: trying format %s @ %i by %i\n", guidStr, VD->tryWidth, VD->tryHeight);
                     if( setSizeAndSubtype(VD, VD->tryWidth, VD->tryHeight, mediaSubtypes[i]) ){
                         VD->setSize(VD->tryWidth, VD->tryHeight);
-                        VD->videoType = mediaSubtypes[i];
                         foundSize = true;
                         break;
                     }
@@ -2619,7 +2662,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
 
         //if we didn't find the requested size - lets try and find the closest matching size
         if( foundSize == false ){
-            DebugPrintOut("SETUP: couldn't find requested size - searching for closest matching size\n");
+            if( verbose )printf("SETUP: couldn't find requested size - searching for closest matching size\n");
 
             int closestWidth        = -1;
             int closestHeight        = -1;
@@ -2630,7 +2673,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
             if( closestWidth != -1 && closestHeight != -1){
                 getMediaSubtypeAsString(newMediaSubtype, guidStr);
 
-                DebugPrintOut("SETUP: closest supported size is %s @ %i %i\n", guidStr, closestWidth, closestHeight);
+                if(verbose)printf("SETUP: closest supported size is %s @ %i %i\n", guidStr, closestWidth, closestHeight);
                 if( setSizeAndSubtype(VD, closestWidth, closestHeight, newMediaSubtype) ){
                     VD->setSize(closestWidth, closestHeight);
                     foundSize = true;
@@ -2652,21 +2695,21 @@ int videoInput::start(int deviceID, videoDevice *VD){
     // Create the Sample Grabber.
     hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER,IID_IBaseFilter, (void**)&VD->pGrabberF);
     if (FAILED(hr)){
-        DebugPrintOut("Could not Create Sample Grabber - CoCreateInstance()\n");
+        if(verbose)printf("Could not Create Sample Grabber - CoCreateInstance()\n");
         stopDevice(deviceID);
         return hr;
     }
 
     hr = VD->pGraph->AddFilter(VD->pGrabberF, L"Sample Grabber");
     if (FAILED(hr)){
-        DebugPrintOut("Could not add Sample Grabber - AddFilter()\n");
+        if(verbose)printf("Could not add Sample Grabber - AddFilter()\n");
         stopDevice(deviceID);
         return hr;
     }
 
     hr = VD->pGrabberF->QueryInterface(IID_ISampleGrabber, (void**)&VD->pGrabber);
     if (FAILED(hr)){
-        DebugPrintOut("ERROR: Could not query SampleGrabber\n");
+        if(verbose)printf("ERROR: Could not query SampleGrabber\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2685,11 +2728,11 @@ int videoInput::start(int deviceID, videoDevice *VD){
         //We use SampleCB
         hr = VD->pGrabber->SetCallback(VD->sgCallback, 0);
         if (FAILED(hr)){
-            DebugPrintOut("ERROR: problem setting callback\n");
+            if(verbose)printf("ERROR: problem setting callback\n");
             stopDevice(deviceID);
             return hr;
         }else{
-            DebugPrintOut("SETUP: Capture callback set\n");
+            if(verbose)printf("SETUP: Capture callback set\n");
         }
     }
 
@@ -2700,7 +2743,12 @@ int videoInput::start(int deviceID, videoDevice *VD){
     ZeroMemory(&mt,sizeof(AM_MEDIA_TYPE));
 
     mt.majortype     = MEDIATYPE_Video;
-    mt.subtype         = MEDIASUBTYPE_RGB24;
+	//Included conditional based format by e-con
+	if(checkSingleByteFormat(VD->pAmMediaType->subtype) || (VD->pAmMediaType->subtype == MEDIASUBTYPE_Y16))
+		mt.subtype         = VD->pAmMediaType->subtype;
+	else
+		mt.subtype         = MEDIASUBTYPE_RGB24;	//Making it RGB24, does conversion from YUV to RGB
+	//Included conditional based format by e-con - end
     mt.formattype     = FORMAT_VideoInfo;
 
     //VD->pAmMediaType->subtype = VD->videoType;
@@ -2712,7 +2760,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
         VD->streamConf->Release();
         VD->streamConf = NULL;
     }else{
-        DebugPrintOut("ERROR: connecting device - prehaps it is already being used?\n");
+        if(verbose)printf("ERROR: connecting device - prehaps it is already being used?\n");
         stopDevice(deviceID);
         return S_FALSE;
     }
@@ -2722,14 +2770,14 @@ int videoInput::start(int deviceID, videoDevice *VD){
     //used to give the video stream somewhere to go to.
     hr = CoCreateInstance(CLSID_NullRenderer, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void**)(&VD->pDestFilter));
     if (FAILED(hr)){
-        DebugPrintOut("ERROR: Could not create filter - NullRenderer\n");
+        if(verbose)printf("ERROR: Could not create filter - NullRenderer\n");
         stopDevice(deviceID);
         return hr;
     }
 
     hr = VD->pGraph->AddFilter(VD->pDestFilter, L"NullRenderer");
     if (FAILED(hr)){
-        DebugPrintOut("ERROR: Could not add filter - NullRenderer\n");
+        if(verbose)printf("ERROR: Could not add filter - NullRenderer\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2739,7 +2787,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     hr = VD->pCaptureGraph->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, VD->pVideoInputFilter, VD->pGrabberF, VD->pDestFilter);
 
     if (FAILED(hr)){
-        DebugPrintOut("ERROR: Could not connect pins - RenderStream()\n");
+        if(verbose)printf("ERROR: Could not connect pins - RenderStream()\n");
         stopDevice(deviceID);
         return hr;
     }
@@ -2750,7 +2798,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
         IMediaFilter *pMediaFilter = 0;
         hr = VD->pGraph->QueryInterface(IID_IMediaFilter, (void**)&pMediaFilter);
         if (FAILED(hr)){
-            DebugPrintOut("ERROR: Could not get IID_IMediaFilter interface\n");
+            if(verbose)printf("ERROR: Could not get IID_IMediaFilter interface\n");
         }else{
             pMediaFilter->SetSyncSource(NULL);
             pMediaFilter->Release();
@@ -2762,7 +2810,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
     hr = VD->pControl->Run();
 
     if (FAILED(hr)){
-         DebugPrintOut("ERROR: Could not start graph\n");
+         if(verbose)printf("ERROR: Could not start graph\n");
          stopDevice(deviceID);
          return hr;
     }
@@ -2780,7 +2828,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
 
     }
 
-    DebugPrintOut("SETUP: Device is setup and ready to capture.\n\n");
+    if(verbose)printf("SETUP: Device is setup and ready to capture.\n\n");
     VD->readyToCapture = true;
 
     //Release filters - seen someone else do this
@@ -3057,7 +3105,7 @@ HRESULT videoInput::routeCrossbar(ICaptureGraphBuilder2 **ppBuild, IBaseFilter *
 
         bool foundDevice = false;
 
-        DebugPrintOut("SETUP: You are not a webcam! Setting Crossbar\n");
+        if(verbose)printf("SETUP: You are not a webcam! Setting Crossbar\n");
         pXBar1->Release();
 
         IAMCrossbar *Crossbar;
@@ -3077,24 +3125,24 @@ HRESULT videoInput::routeCrossbar(ICaptureGraphBuilder2 **ppBuild, IBaseFilter *
             hr = Crossbar->get_CrossbarPinInfo( iPin , pIndex , &pRIndex , &pType);
 
             if( pType == conType){
-                    DebugPrintOut("SETUP: Found Physical Interface");
+                    if(verbose)printf("SETUP: Found Physical Interface");
 
                     switch(conType){
 
                         case PhysConn_Video_Composite:
-                            DebugPrintOut(" - Composite\n");
+                            if(verbose)printf(" - Composite\n");
                             break;
                         case PhysConn_Video_SVideo:
-                            DebugPrintOut(" - S-Video\n");
+                            if(verbose)printf(" - S-Video\n");
                             break;
                         case PhysConn_Video_Tuner:
-                            DebugPrintOut(" - Tuner\n");
+                            if(verbose)printf(" - Tuner\n");
                             break;
                         case PhysConn_Video_USB:
-                            DebugPrintOut(" - USB\n");
+                             if(verbose)printf(" - USB\n");
                             break;
                         case PhysConn_Video_1394:
-                            DebugPrintOut(" - Firewire\n");
+                            if(verbose)printf(" - Firewire\n");
                             break;
                     }
 
@@ -3115,7 +3163,7 @@ HRESULT videoInput::routeCrossbar(ICaptureGraphBuilder2 **ppBuild, IBaseFilter *
             }
             Crossbar->Route(pOIndex,pIndex);
         }else{
-            DebugPrintOut("SETUP: Didn't find specified Physical Connection type. Using Defualt.\n");
+            if(verbose) printf("SETUP: Didn't find specified Physical Connection type. Using Defualt. \n");
         }
 
         //we only free the crossbar when we close or restart the device
@@ -3127,66 +3175,161 @@ HRESULT videoInput::routeCrossbar(ICaptureGraphBuilder2 **ppBuild, IBaseFilter *
         if(pXBar1)pXBar1 = NULL;
 
     }else{
-        DebugPrintOut("SETUP: You are a webcam or snazzy firewire cam! No Crossbar needed\n");
+        if(verbose) printf("SETUP: You are a webcam or snazzy firewire cam! No Crossbar needed\n");
         return hr;
     }
 
     return hr;
 }
 
-namespace cv
-{
-videoInput VideoCapture_DShow::g_VI;
 
-VideoCapture_DShow::VideoCapture_DShow(int index)
-    : m_index(-1)
-    , m_width(-1)
-    , m_height(-1)
-    , m_fourcc(-1)
-    , m_widthSet(-1)
-    , m_heightSet(-1)
+/********************* Capturing video from camera via DirectShow *********************/
+
+class CvCaptureCAM_DShow : public CvCapture
 {
+public:
+    CvCaptureCAM_DShow();
+    virtual ~CvCaptureCAM_DShow();
+
+    virtual bool open( int index );
+    virtual void close();
+    virtual double getProperty(int);
+    virtual bool setProperty(int, double);
+    virtual bool grabFrame();
+    virtual IplImage* retrieveFrame(int);
+    virtual int getCaptureDomain() { return CV_CAP_DSHOW; } // Return the type of the capture object: CV_CAP_VFW, etc...
+
+protected:
+    void init();
+
+    int index, width, height,fourcc;
+    int widthSet, heightSet;
+    IplImage* frame;
+    static videoInput VI;
+};
+
+
+struct SuppressVideoInputMessages
+{
+    SuppressVideoInputMessages() { videoInput::setVerbose(false); }
+};
+
+static SuppressVideoInputMessages do_it;
+videoInput CvCaptureCAM_DShow::VI;
+
+CvCaptureCAM_DShow::CvCaptureCAM_DShow()
+{
+    index = -1;
+    frame = 0;
+    width = height = fourcc = -1;
+    widthSet = heightSet = -1;
     CoInitialize(0);
-    open(index);
 }
-VideoCapture_DShow::~VideoCapture_DShow()
+
+CvCaptureCAM_DShow::~CvCaptureCAM_DShow()
 {
     close();
     CoUninitialize();
 }
 
-double VideoCapture_DShow::getProperty(int propIdx) const
+void CvCaptureCAM_DShow::close()
+{
+    if( index >= 0 )
+    {
+        VI.stopDevice(index);
+        index = -1;
+        cvReleaseImage(&frame);
+    }
+    widthSet = heightSet = width = height = -1;
+}
+
+// Initialize camera input
+bool CvCaptureCAM_DShow::open( int _index )
+{
+    int devices = 0;
+
+    close();
+    devices = VI.listDevices(true);
+    if (devices == 0)
+        return false;
+    if (_index < 0 || _index > devices-1)
+        return false;
+    VI.setupDevice(_index);
+    if( !VI.isDeviceSetup(_index) )
+        return false;
+    index = _index;
+    return true;
+}
+
+bool CvCaptureCAM_DShow::grabFrame()
+{
+    return true;
+}
+
+
+IplImage* CvCaptureCAM_DShow::retrieveFrame(int)
+{
+    if( !frame || VI.getWidth(index) != frame->width || VI.getHeight(index) != frame->height )
+    {
+        if (frame)
+            cvReleaseImage( &frame );
+        int w = VI.getWidth(index), h = VI.getHeight(index);
+		//Included conditional opencv datatype allocation ,as single byte datatype does not need much memory. By e-con
+		if(checkSingleByteFormat(VI.getMediasubtype(index)))
+			frame = cvCreateImage( cvSize(w,h), 8, 1);
+		else if(VI.getMediasubtype(index) == MEDIASUBTYPE_Y16)
+			frame = cvCreateImage( cvSize(w, h), 16, 1);
+		else
+			frame = cvCreateImage( cvSize(w,h), 8, 3);
+		//Included conditional opencv datatype allocation by e-con - end
+    }
+
+    if (VI.getPixels( index, (uchar*)frame->imageData, false, true ))
+        return frame;
+    else
+        return NULL;
+}
+
+double CvCaptureCAM_DShow::getProperty( int property_id )
 {
 
-    long min_value, max_value, stepping_delta, current_value, flags, defaultValue;
+    long min_value,max_value,stepping_delta,current_value,flags,defaultValue;
 
-    switch (propIdx)
+    // image format proprrties
+    switch( property_id )
     {
-    // image format properties
     case CV_CAP_PROP_FRAME_WIDTH:
-        return g_VI.getWidth(m_index);
+        return VI.getWidth(index);
+
     case CV_CAP_PROP_FRAME_HEIGHT:
-        return g_VI.getHeight(m_index);
+        return VI.getHeight(index);
+
     case CV_CAP_PROP_FOURCC:
-        return g_VI.getFourcc(m_index);
+        return VI.getFourcc(index);
+
     case CV_CAP_PROP_FPS:
-        return g_VI.getFPS(m_index);
+        return VI.getFPS(index);
+    }
 
     // video filter properties
+    switch( property_id )
+    {
     case CV_CAP_PROP_BRIGHTNESS:
     case CV_CAP_PROP_CONTRAST:
     case CV_CAP_PROP_HUE:
     case CV_CAP_PROP_SATURATION:
     case CV_CAP_PROP_SHARPNESS:
     case CV_CAP_PROP_GAMMA:
-    case CV_CAP_PROP_MONOCHROME:
+    case CV_CAP_PROP_MONOCROME:
     case CV_CAP_PROP_WHITE_BALANCE_BLUE_U:
     case CV_CAP_PROP_BACKLIGHT:
     case CV_CAP_PROP_GAIN:
-        if (g_VI.getVideoSettingFilter(m_index, g_VI.getVideoPropertyFromCV(propIdx), min_value, max_value, stepping_delta, current_value, flags, defaultValue))
-            return (double)current_value;
+        if (VI.getVideoSettingFilter(index,VI.getVideoPropertyFromCV(property_id),min_value,max_value,stepping_delta,current_value,flags,defaultValue) ) return (double)current_value;
+    }
 
     // camera properties
+    switch( property_id )
+    {
     case CV_CAP_PROP_PAN:
     case CV_CAP_PROP_TILT:
     case CV_CAP_PROP_ROLL:
@@ -3194,33 +3337,33 @@ double VideoCapture_DShow::getProperty(int propIdx) const
     case CV_CAP_PROP_EXPOSURE:
     case CV_CAP_PROP_IRIS:
     case CV_CAP_PROP_FOCUS:
-        if (g_VI.getVideoSettingCamera(m_index, g_VI.getCameraPropertyFromCV(propIdx), min_value, max_value, stepping_delta, current_value, flags, defaultValue))
-            return (double)current_value;
+        if (VI.getVideoSettingCamera(index,VI.getCameraPropertyFromCV(property_id),min_value,max_value,stepping_delta,current_value,flags,defaultValue) ) return (double)current_value;
+
     }
 
     // unknown parameter or value not available
     return -1;
 }
-bool VideoCapture_DShow::setProperty(int propIdx, double propVal)
+
+bool CvCaptureCAM_DShow::setProperty( int property_id, double value )
 {
     // image capture properties
     bool handled = false;
-    switch (propIdx)
+    switch( property_id )
     {
     case CV_CAP_PROP_FRAME_WIDTH:
-        m_width = cvRound(propVal);
+        width = cvRound(value);
         handled = true;
         break;
 
     case CV_CAP_PROP_FRAME_HEIGHT:
-        m_height = cvRound(propVal);
+        height = cvRound(value);
         handled = true;
         break;
 
     case CV_CAP_PROP_FOURCC:
-        m_fourcc = (int)(unsigned long)(propVal);
-        if (-1 == m_fourcc)
-        {
+        fourcc = (int)(unsigned long)(value);
+        if ( fourcc == -1 ) {
             // following cvCreateVideo usage will pop up caprturepindialog here if fourcc=-1
             // TODO - how to create a capture pin dialog
         }
@@ -3228,38 +3371,38 @@ bool VideoCapture_DShow::setProperty(int propIdx, double propVal)
         break;
 
     case CV_CAP_PROP_FPS:
-        int fps = cvRound(propVal);
-        if (fps != g_VI.getFPS(m_index))
+        int fps = cvRound(value);
+        if (fps != VI.getFPS(index))
         {
-            g_VI.stopDevice(m_index);
-            g_VI.setIdealFramerate(m_index, fps);
-            if (m_widthSet > 0 && m_heightSet > 0)
-                g_VI.setupDevice(m_index, m_widthSet, m_heightSet);
+            VI.stopDevice(index);
+            VI.setIdealFramerate(index,fps);
+            if (widthSet > 0 && heightSet > 0)
+                VI.setupDevice(index, widthSet, heightSet);
             else
-                g_VI.setupDevice(m_index);
+                VI.setupDevice(index);
         }
-        return g_VI.isDeviceSetup(m_index);
+        return VI.isDeviceSetup(index);
+
     }
 
-    if (handled)
-    {
+    if ( handled ) {
         // a stream setting
-        if (m_width > 0 && m_height > 0)
+        if( width > 0 && height > 0 )
         {
-            if (m_width != g_VI.getWidth(m_index) || m_height != g_VI.getHeight(m_index) )//|| fourcc != VI.getFourcc(index) )
+            if( width != VI.getWidth(index) || height != VI.getHeight(index) )//|| fourcc != VI.getFourcc(index) )
             {
-                int fps = static_cast<int>(g_VI.getFPS(m_index));
-                g_VI.stopDevice(m_index);
-                g_VI.setIdealFramerate(m_index, fps);
-                g_VI.setupDeviceFourcc(m_index, m_width, m_height, m_fourcc);
+                int fps = static_cast<int>(VI.getFPS(index));
+                VI.stopDevice(index);
+                VI.setIdealFramerate(index, fps);
+                VI.setupDeviceFourcc(index, width, height, fourcc);
             }
 
-            bool success = g_VI.isDeviceSetup(m_index);
+            bool success = VI.isDeviceSetup(index);
             if (success)
             {
-                m_widthSet = m_width;
-                m_heightSet = m_height;
-                m_width = m_height = m_fourcc = -1;
+                widthSet = width;
+                heightSet = height;
+                width = height = fourcc = -1;
             }
             return success;
         }
@@ -3267,14 +3410,13 @@ bool VideoCapture_DShow::setProperty(int propIdx, double propVal)
     }
 
     // show video/camera filter dialog
-    if (propIdx == CV_CAP_PROP_SETTINGS )
-    {
-        g_VI.showSettingsWindow(m_index);
+    if ( property_id == CV_CAP_PROP_SETTINGS ) {
+        VI.showSettingsWindow(index);
         return true;
     }
 
     //video Filter properties
-    switch (propIdx)
+    switch( property_id )
     {
     case CV_CAP_PROP_BRIGHTNESS:
     case CV_CAP_PROP_CONTRAST:
@@ -3282,15 +3424,15 @@ bool VideoCapture_DShow::setProperty(int propIdx, double propVal)
     case CV_CAP_PROP_SATURATION:
     case CV_CAP_PROP_SHARPNESS:
     case CV_CAP_PROP_GAMMA:
-    case CV_CAP_PROP_MONOCHROME:
+    case CV_CAP_PROP_MONOCROME:
     case CV_CAP_PROP_WHITE_BALANCE_BLUE_U:
     case CV_CAP_PROP_BACKLIGHT:
     case CV_CAP_PROP_GAIN:
-        return g_VI.setVideoSettingFilter(m_index, g_VI.getVideoPropertyFromCV(propIdx), (long)propVal);
+        return VI.setVideoSettingFilter(index,VI.getVideoPropertyFromCV(property_id),(long)value);
     }
 
     //camera properties
-    switch (propIdx)
+    switch( property_id )
     {
     case CV_CAP_PROP_PAN:
     case CV_CAP_PROP_TILT:
@@ -3299,55 +3441,30 @@ bool VideoCapture_DShow::setProperty(int propIdx, double propVal)
     case CV_CAP_PROP_EXPOSURE:
     case CV_CAP_PROP_IRIS:
     case CV_CAP_PROP_FOCUS:
-        return g_VI.setVideoSettingCamera(m_index, g_VI.getCameraPropertyFromCV(propIdx), (long)propVal);
+        return VI.setVideoSettingCamera(index,VI.getCameraPropertyFromCV(property_id),(long)value);
     }
 
     return false;
 }
 
-bool VideoCapture_DShow::grabFrame()
-{
-    return true;
-}
-bool VideoCapture_DShow::retrieveFrame(int, OutputArray frame)
-{
-    frame.create(Size(g_VI.getWidth(m_index), g_VI.getHeight(m_index)), CV_8UC3);
-    cv::Mat mat = frame.getMat();
-    return g_VI.getPixels(m_index, mat.ptr(), false, true );
-}
-int VideoCapture_DShow::getCaptureDomain()
-{
-    return CV_CAP_DSHOW;
-}
-bool VideoCapture_DShow::isOpened() const
-{
-    return (-1 != m_index);
-}
 
-void VideoCapture_DShow::open(int index)
+CvCapture* cvCreateCameraCapture_DShow( int index )
 {
-    close();
-    int devices = g_VI.listDevices(true);
-    if (0 == devices)
-        return;
-    if (index < 0 || index > devices-1)
-        return;
-    g_VI.setupDevice(index);
-    if (!g_VI.isDeviceSetup(index))
-        return;
-    m_index = index;
-}
+    CvCaptureCAM_DShow* capture = new CvCaptureCAM_DShow;
 
-void VideoCapture_DShow::close()
-{
-    if (m_index >= 0)
+    try
     {
-        g_VI.stopDevice(m_index);
-        m_index = -1;
+        if( capture->open( index ))
+            return capture;
     }
-    m_widthSet = m_heightSet = m_width = m_height = -1;
-}
+    catch(...)
+    {
+        delete capture;
+        throw;
+    }
 
+    delete capture;
+    return 0;
 }
 
 #endif
